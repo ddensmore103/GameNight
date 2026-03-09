@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { joinRoom, getRoom } from "../firebase/databaseHelpers";
+import { joinRoom, saveSession } from "../firebase/databaseHelpers";
 
 export default function JoinParty() {
     const { user, loading: authLoading } = useAuth();
@@ -31,9 +31,8 @@ export default function JoinParty() {
         try {
             await joinRoom(trimmedCode, user.uid, trimmedName);
 
-            // Save to session
-            sessionStorage.setItem("gn_playerName", trimmedName);
-            sessionStorage.setItem("gn_roomCode", trimmedCode);
+            // Save session to localStorage for reconnect support
+            saveSession(trimmedCode, trimmedName, user.uid);
 
             navigate(`/lobby/${trimmedCode}`);
         } catch (err) {

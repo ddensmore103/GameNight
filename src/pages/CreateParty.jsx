@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { createRoom } from "../firebase/databaseHelpers";
+import { createRoom, saveSession } from "../firebase/databaseHelpers";
 
 export default function CreateParty() {
     const { user, loading: authLoading } = useAuth();
@@ -29,9 +29,8 @@ export default function CreateParty() {
         try {
             const roomCode = await createRoom(user.uid, trimmed);
 
-            // Save the player's name to sessionStorage so we can retrieve it later
-            sessionStorage.setItem("gn_playerName", trimmed);
-            sessionStorage.setItem("gn_roomCode", roomCode);
+            // Save session to localStorage for reconnect support
+            saveSession(roomCode, trimmed, user.uid);
 
             navigate(`/lobby/${roomCode}`);
         } catch (err) {

@@ -10,7 +10,7 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useRoom } from "../hooks/useRoom";
-import { startGame } from "../firebase/databaseHelpers";
+import { startGame, clearSession } from "../firebase/databaseHelpers";
 import PlayerList from "../components/PlayerList";
 
 export default function LobbyPage() {
@@ -111,7 +111,10 @@ export default function LobbyPage() {
 
                 <button
                     className="btn btn-secondary btn-sm"
-                    onClick={() => navigate("/")}
+                    onClick={() => {
+                        clearSession();
+                        navigate("/");
+                    }}
                 >
                     Leave Room
                 </button>

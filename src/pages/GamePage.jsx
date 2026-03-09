@@ -2,14 +2,21 @@
  * Game Page
  *
  * Hosts the active game. Uses useRoom to get live game state
- * and renders the appropriate game component.
+ * and renders the appropriate game component based on gameState.currentGame.
+ *
+ * Flow:
+ *   status === "playing" + gameState === null → GameSelection screen
+ *   gameState.currentGame === "mostLikelyTo"  → MostLikelyTo (GameContainer)
+ *   gameState.currentGame === "truthOrDare"   → TruthOrDareGame
  */
 
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useRoom } from "../hooks/useRoom";
+import GameSelection from "../components/GameSelection";
 import GameContainer from "../components/GameContainer";
+import TruthOrDareGame from "../games/TruthOrDareGame";
 
 export default function GamePage() {
     const { roomCode } = useParams();
@@ -18,8 +25,9 @@ export default function GamePage() {
     const { room, players, gameState, hostId, status, loading, error } = useRoom(roomCode);
 
     const isHost = user?.uid === hostId;
+    const currentGame = gameState?.currentGame || null;
 
-    // If room goes back to lobby (play again), redirect
+    // If room goes back to lobby (host pressed "Back to Lobby"), redirect
     useEffect(() => {
         if (status === "lobby") {
             navigate(`/lobby/${roomCode}`, { replace: true });
@@ -51,6 +59,52 @@ export default function GamePage() {
         );
     }
 
+    // ─── Determine which screen to show ─────────────────────────────────────
+    function renderGame() {
+        // No game selected yet → show game selection screen
+        if (!currentGame) {
+            return (
+                <GameSelection
+                    roomCode={roomCode}
+                    players={players}
+                    isHost={isHost}
+                />
+            );
+        }
+
+        // Route to the correct game component based on currentGame
+        switch (currentGame) {
+            case "mostLikelyTo":
+                return (
+                    <GameContainer
+                        roomCode={roomCode}
+                        players={players}
+                        gameState={gameState}
+                        isHost={isHost}
+                        currentUserId={user?.uid}
+                    />
+                );
+
+            case "truthOrDare":
+                return (
+                    <TruthOrDareGame
+                        roomCode={roomCode}
+                        players={players}
+                        gameState={gameState}
+                        isHost={isHost}
+                        currentUserId={user?.uid}
+                    />
+                );
+
+            default:
+                return (
+                    <div className="glass-card text-center">
+                        <p className="text-muted">Unknown game: {currentGame}</p>
+                    </div>
+                );
+        }
+    }
+
     return (
         <div className="page">
             <div className="page-content fade-in-up" style={{ maxWidth: "560px" }}>
@@ -61,13 +115,7 @@ export default function GamePage() {
                     </div>
                 </div>
 
-                <GameContainer
-                    roomCode={roomCode}
-                    players={players}
-                    gameState={gameState}
-                    isHost={isHost}
-                    currentUserId={user?.uid}
-                />
+                {renderGame()}
             </div>
         </div>
     );

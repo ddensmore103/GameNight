@@ -15,7 +15,7 @@ import {
     submitVote,
     revealVotes,
     nextRound,
-    returnToLobby,
+    returnToGameSelection,
 } from "../firebase/databaseHelpers";
 import PlayerList from "./PlayerList";
 
@@ -130,9 +130,9 @@ export default function GameContainer({
                     <div className="flex-col gap-md mt-lg">
                         <button
                             className="btn btn-primary btn-block"
-                            onClick={() => returnToLobby(roomCode)}
+                            onClick={() => returnToGameSelection(roomCode)}
                         >
-                            🔄 Play Again
+                            🎮 Pick Another Game
                         </button>
                     </div>
                 )}
