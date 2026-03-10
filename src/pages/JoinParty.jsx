@@ -34,7 +34,8 @@ export default function JoinParty() {
             // Save session to localStorage for reconnect support
             saveSession(trimmedCode, trimmedName, user.uid);
 
-            navigate(`/lobby/${trimmedCode}`);
+            // Navigate to the unified game/lobby page
+            navigate(`/game/${trimmedCode}`);
         } catch (err) {
             console.error("Failed to join room:", err);
             setError(err.message || "Could not join room. Check the code and try again.");

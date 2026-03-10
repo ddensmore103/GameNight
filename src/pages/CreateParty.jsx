@@ -32,7 +32,8 @@ export default function CreateParty() {
             // Save session to localStorage for reconnect support
             saveSession(roomCode, trimmed, user.uid);
 
-            navigate(`/lobby/${roomCode}`);
+            // Navigate to the unified game/lobby page
+            navigate(`/game/${roomCode}`);
         } catch (err) {
             console.error("Failed to create room:", err);
             setError(err.message || "Failed to create room. Try again.");

@@ -137,7 +137,7 @@ export async function createRoom(hostId, hostName) {
     // Build the initial room data
     const roomData = {
         hostId,
-        status: "lobby", // "lobby" | "playing" | "finished"
+        status: "playing", // skip separate lobby phase
         createdAt: Date.now(),
         players: {
             [hostId]: {

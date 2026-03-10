@@ -10,7 +10,6 @@ import { useReconnect } from "./hooks/useReconnect";
 import Home from "./pages/Home";
 import CreateParty from "./pages/CreateParty";
 import JoinParty from "./pages/JoinParty";
-import LobbyPage from "./pages/LobbyPage";
 import GamePage from "./pages/GamePage";
 import AuthPage from "./pages/AuthPage";
 
@@ -42,7 +41,7 @@ export default function App() {
         <Route path="/join" element={<JoinParty />} />
         <Route path="/login" element={<AuthPage defaultMode="login" />} />
         <Route path="/signup" element={<AuthPage defaultMode="signup" />} />
-        <Route path="/lobby/:roomCode" element={<LobbyPage />} />
+        <Route path="/lobby/:roomCode" element={<GamePage />} />
         <Route path="/game/:roomCode" element={<GamePage />} />
       </Routes>
     </>

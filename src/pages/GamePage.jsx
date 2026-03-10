@@ -14,11 +14,12 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useRoom } from "../hooks/useRoom";
+import PlayerList from "../components/PlayerList";
 import GameSelection from "../components/GameSelection";
 import GameContainer from "../components/GameContainer";
 import TruthOrDareGame from "../games/TruthOrDareGame";
 import GuessTheEmojiGame from "../games/GuessTheEmojiGame";
-import { leaveRoom, joinRoom, loadSession } from "../firebase/databaseHelpers";
+import { leaveRoom, joinRoom, loadSession, transferHost } from "../firebase/databaseHelpers";
 
 export default function GamePage() {
     const { roomCode } = useParams();
@@ -28,6 +29,15 @@ export default function GamePage() {
 
     const isHost = user?.uid === hostId;
     const currentGame = gameState?.currentGame || null;
+
+    // Handler: transfer host
+    async function handleTransferHost(newHostId) {
+        try {
+            await transferHost(roomCode, newHostId);
+        } catch (err) {
+            console.error("Failed to transfer host:", err);
+        }
+    }
 
     // Rejoin room logic (handles refresh directly on the game page)
     useEffect(() => {
@@ -82,21 +92,10 @@ export default function GamePage() {
 
     // ─── Determine which screen to show ─────────────────────────────────────
     function renderGame() {
-        // No game selected yet (Selection Screen) → Everyone can see this
-        if (!currentGame) {
-            return (
-                <GameSelection
-                    roomCode={roomCode}
-                    players={players}
-                    isHost={isHost}
-                    gameVotes={room?.gameVotes}
-                    currentUserId={user?.uid}
-                />
-            );
-        }
+        // Selection Screen logic is handled by the main layout now
+        if (!currentGame) return null;
 
         // If a game is active, check if the player was in the room when it started
-        // (Reconnecting players are always in the active list)
         const activeIds = gameState?.activePlayerIds || [];
         const isLateJoiner = user && !activeIds.includes(user.uid);
 
@@ -115,7 +114,7 @@ export default function GamePage() {
             );
         }
 
-        // Route to the correct game component based on currentGame
+        // Route to the correct game component
         switch (currentGame) {
             case "mostLikelyTo":
                 return (
@@ -127,7 +126,6 @@ export default function GamePage() {
                         currentUserId={user?.uid}
                     />
                 );
-
             case "truthOrDare":
                 return (
                     <TruthOrDareGame
@@ -138,7 +136,6 @@ export default function GamePage() {
                         currentUserId={user?.uid}
                     />
                 );
-
             case "guessTheEmoji":
                 return (
                     <GuessTheEmojiGame
@@ -149,7 +146,6 @@ export default function GamePage() {
                         currentUserId={user?.uid}
                     />
                 );
-
             default:
                 return (
                     <div className="glass-card text-center">
@@ -161,22 +157,21 @@ export default function GamePage() {
 
     return (
         <div className="page">
-            {/* Top-aligned Header */}
             <div className="page-header">
-                <h1 className="logo logo-sm" style={{ cursor: "pointer" }} onClick={() => navigate("/")}>GameNight</h1>
+                <div>
+                    <h1 className="logo logo-sm" style={{ cursor: "pointer" }} onClick={() => navigate("/")}>GameNight</h1>
+                </div>
 
-                <div className="flex-row gap-sm items-center">
-                    <div className="status-bar" style={{ background: "rgba(255,255,255,0.05)" }}>
-                        <span className="text-muted" style={{ fontWeight: 700, letterSpacing: "1px" }}>{roomCode}</span>
-                    </div>
+                <div className="room-code-box">
+                    <span className="room-code" style={{ letterSpacing: "0.2em" }}>{roomCode}</span>
+                </div>
+
+                <div style={{ justifySelf: "end" }}>
                     <button
                         className="btn btn-secondary btn-sm"
-                        style={{ padding: "0.5rem 1rem" }}
                         onClick={async () => {
-                            if (window.confirm("Are you sure you want to leave the game?")) {
-                                await leaveRoom(roomCode, user?.uid);
-                                navigate("/");
-                            }
+                            await leaveRoom(roomCode, user?.uid);
+                            navigate("/");
                         }}
                     >
                         Leave
@@ -184,9 +179,41 @@ export default function GamePage() {
                 </div>
             </div>
 
-            {/* Centered Main Content */}
-            <div className="page-content fade-in-up" style={{ margin: "auto 0" }}>
-                {renderGame()}
+            <div className="page-content wide" style={{ maxWidth: "100%", margin: 0 }}>
+                {!currentGame ? (
+                    <div className="lobby-layout">
+                        {/* Sidebar: Players (Desktop: Left, Mobile: Bottom) */}
+                        <aside className="lobby-sidebar">
+                            <div className="glass-card glass-card-sm sidebar-section">
+                                <span className="label">Players ({players ? Object.keys(players).length : 0})</span>
+                                <PlayerList
+                                    players={players}
+                                    hostId={hostId}
+                                    currentUserId={user?.uid}
+                                    onTransferHost={handleTransferHost}
+                                />
+                            </div>
+                        </aside>
+
+                        {/* Main: Game Selection (Centered) */}
+                        <main className="lobby-main">
+                            <GameSelection
+                                roomCode={roomCode}
+                                players={players}
+                                isHost={isHost}
+                                gameVotes={room?.gameVotes}
+                                currentUserId={user?.uid}
+                            />
+                        </main>
+
+                        {/* Right Spacer for Grid centering on desktop */}
+                        <div className="desktop-only" style={{ width: "320px" }}></div>
+                    </div>
+                ) : (
+                    <div className="fade-in-up w-full" style={{ maxWidth: "var(--max-width)", margin: "0 auto" }}>
+                        {renderGame()}
+                    </div>
+                )}
             </div>
         </div>
     );
