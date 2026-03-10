@@ -376,10 +376,11 @@ h4 {
   box-shadow: 0 4px 15px rgba(248, 113, 113, 0.3);
 }
 
-/* Small button */
-.btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
+/* Extra small button */
+.btn-xs {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
 }
 
 /* Full-width button */
@@ -521,6 +522,12 @@ h4 {
   font-weight: 700;
   font-size: 1.1rem;
   color: var(--accent-secondary);
+}
+
+.player-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 /* Avatar color palette */
@@ -1007,6 +1014,52 @@ h4 {
   background: rgba(255, 107, 157, 0.15);
   color: var(--accent-tertiary);
   border: 1px solid rgba(255, 107, 157, 0.3);
+}
+
+/* ─── Guess The Emoji ────────────────────────────────────────────────────────── */
+.emoji-puzzle-large {
+  font-size: 4.5rem;
+  letter-spacing: 0.1em;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.emoji-answer-reveal {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent-success);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.input-shake {
+  animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+  border-color: var(--accent-danger) !important;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2) !important;
+}
+
+@keyframes shake {
+
+  10%,
+  90% {
+    transform: translate3d(-2px, 0, 0);
+  }
+
+  20%,
+  80% {
+    transform: translate3d(3px, 0, 0);
+  }
+
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-5px, 0, 0);
+  }
+
+  40%,
+  60% {
+    transform: translate3d(5px, 0, 0);
+  }
 }
 
 /* ─── Reduced Motion ─────────────────────────────────────────────────────────── */

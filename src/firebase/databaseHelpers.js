@@ -13,6 +13,7 @@ import {
     update,
     remove,
     child,
+    push,
     onDisconnect,
 } from "firebase/database";
 
@@ -65,6 +66,30 @@ const DARE_PROMPTS = [
     "Keep a straight face while others try to make you laugh for 30 seconds",
     "Dance with no music for 15 seconds",
 ];
+
+// ─── Puzzles for "Guess The Emoji" ──────────────────────────────────────────
+const EMOJI_PUZZLES = [
+    { emoji: "🦁👑", answer: "Lion King", theme: "Movie" },
+    { emoji: "🚢🧊💥", answer: "Titanic", theme: "Movie" },
+    { emoji: "🕷️🧑", answer: "Spider Man", theme: "Character" },
+    { emoji: "👻🔫", answer: "Ghostbusters", theme: "Movie" },
+    { emoji: "⚡🪄👓", answer: "Harry Potter", theme: "Franchise" },
+    { emoji: "👽🛸🚲", answer: "ET", theme: "Movie" },
+    { emoji: "🦖🏞️🚙", answer: "Jurassic Park", theme: "Movie" },
+    { emoji: "🦇👨🌑", answer: "Batman", theme: "Character" },
+    { emoji: "👨‍🚀🌌🕳️", answer: "Interstellar", theme: "Movie" },
+    { emoji: "🐠🔍🌊", answer: "Finding Nemo", theme: "Movie" },
+    { emoji: "🎈🏠👴", answer: "Up", theme: "Movie" },
+    { emoji: "🚗⚡🕰️", answer: "Back to the Future", theme: "Movie" },
+];
+
+/**
+ * Normalize an answer for comparison (lowercase, remove spaces and punctuation).
+ */
+export function normalizeAnswer(str) {
+    if (!str) return "";
+    return str.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 /**
  * Generate a random 4-letter room code (uppercase A-Z).
@@ -119,6 +144,7 @@ export async function createRoom(hostId, hostName) {
                 name: hostName,
                 score: 0,
                 connected: true,
+                joinedAt: Date.now(),
             },
         },
         gameState: null,
@@ -162,6 +188,7 @@ export async function joinRoom(roomCode, playerId, playerName) {
         name: playerName,
         score: existingPlayer?.score || 0,
         connected: true,
+        joinedAt: existingPlayer?.joinedAt || Date.now(),
     });
 
     // Mark as disconnected (not removed) if the tab closes
@@ -172,11 +199,42 @@ export async function joinRoom(roomCode, playerId, playerName) {
 
 /**
  * Remove a player from a room (intentional leave).
+ * If the host leaves, migrates hosting duties to the next oldest player.
  */
 export async function leaveRoom(roomCode, playerId) {
+    const roomRef = ref(db, `rooms/${roomCode}`);
+    const snapshot = await get(roomRef);
+    if (!snapshot.exists()) return;
+
+    const room = snapshot.val();
+    const isHostLeaving = room.hostId === playerId;
+
     // Cancel the onDisconnect handler before removing
     onDisconnect(ref(db, `rooms/${roomCode}/players/${playerId}/connected`)).cancel();
-    await remove(ref(db, `rooms/${roomCode}/players/${playerId}`));
+
+    // Prepare updates
+    const updates = {};
+    updates[`players/${playerId}`] = null; // Remove the player
+
+    if (isHostLeaving) {
+        // Find all other players
+        const otherPlayers = Object.entries(room.players || {})
+            .filter(([id]) => id !== playerId)
+            .map(([id, p]) => ({ id, joinedAt: p.joinedAt || 0 }))
+            .sort((a, b) => a.joinedAt - b.joinedAt);
+
+        if (otherPlayers.length > 0) {
+            // Promote the next oldest player
+            updates.hostId = otherPlayers[0].id;
+        } else {
+            // No one left, delete the room
+            await remove(roomRef);
+            clearSession();
+            return;
+        }
+    }
+
+    await update(roomRef, updates);
 
     // Clear saved session so reconnect doesn't trigger
     clearSession();
@@ -266,6 +324,15 @@ export async function reconnectToRoom(roomCode, playerId, playerName) {
     setupPresence(roomCode, playerId);
 
     return { roomCode, status: room.status };
+}
+
+/**
+ * Manually transfer host privileges to another player.
+ */
+export async function transferHost(roomCode, newHostId) {
+    await update(ref(db, `rooms/${roomCode}`), {
+        hostId: newHostId,
+    });
 }
 
 /**
@@ -474,5 +541,155 @@ export async function returnToLobby(roomCode) {
 export async function returnToGameSelection(roomCode) {
     await update(ref(db, `rooms/${roomCode}`), {
         gameState: null,
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// "Guess The Emoji" — Game Helpers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Initialize the "Guess The Emoji" game.
+ */
+export async function startGuessTheEmoji(roomCode, playerIds) {
+    const totalRounds = 5;
+    const shuffled = shuffle(EMOJI_PUZZLES);
+    const selectedPuzzles = shuffled.slice(0, totalRounds);
+
+    const initialLives = {};
+    playerIds.forEach((id) => {
+        initialLives[id] = 3;
+    });
+
+    const gameState = {
+        currentGame: "guessTheEmoji",
+        phase: "guessing", // "guessing" | "round_end" | "finished"
+        round: 1,
+        totalRounds,
+        puzzle: selectedPuzzles[0].emoji,
+        answer: selectedPuzzles[0].answer,
+        theme: selectedPuzzles[0].theme,
+        puzzles: selectedPuzzles, // Store for round advancement
+        correctGuesses: {},
+        guesses: {},
+        lives: initialLives,
+    };
+
+    await update(ref(db, `rooms/${roomCode}`), { gameState });
+}
+
+/**
+ * Submit a guess. Evaluates it against the normalized answer.
+ * If correct, marks the player as the winner and moves to round_end phase.
+ */
+export async function submitEmojiGuess(roomCode, playerId, guessString) {
+    const roomRef = ref(db, `rooms/${roomCode}`);
+    const snapshot = await get(roomRef);
+    if (!snapshot.exists()) return;
+
+    const room = snapshot.val();
+    const gameState = room.gameState;
+
+    if (gameState?.phase !== "guessing") return; // Too late, round already won
+
+    const currentAnswer = gameState.answer;
+
+    // Safely get lives (default to 3 if not present for some reason)
+    const playerLives = gameState.lives?.[playerId] !== undefined ? gameState.lives[playerId] : 3;
+    const correctGuesses = gameState.correctGuesses || {};
+
+    // Reject guess if player is out of lives or already guessed correctly
+    if (playerLives <= 0 || correctGuesses[playerId]) return;
+
+    const updates = {};
+    const newLivesObj = { ...(gameState.lives || {}) };
+    const newCorrectGuesses = { ...correctGuesses };
+
+    const isCorrect = normalizeAnswer(guessString) === normalizeAnswer(currentAnswer);
+
+    // Save the guess to the feed (overwrites previous guess for this player)
+    const guessData = {
+        playerName: room.players[playerId]?.name || "Unknown",
+        uid: playerId,
+        text: guessString,
+        correct: isCorrect,
+        timestamp: Date.now()
+    };
+    updates[`gameState/guesses/${playerId}`] = guessData;
+
+    // Check match
+    if (isCorrect) {
+        // Correct! Mark as correctly guessed
+        const isFirst = Object.keys(correctGuesses).length === 0;
+        const pointsEarned = isFirst ? 2 : 1;
+        newCorrectGuesses[playerId] = pointsEarned;
+
+        const currentScore = room.players[playerId]?.score || 0;
+        updates[`players/${playerId}/score`] = currentScore + pointsEarned;
+        updates[`gameState/correctGuesses/${playerId}`] = pointsEarned;
+    } else {
+        // Incorrect guess. Reduce lives.
+        const newLives = playerLives - 1;
+        newLivesObj[playerId] = newLives;
+        updates[`gameState/lives/${playerId}`] = newLives;
+    }
+
+    // Determine if the round is over.
+    // Round is over if EVERY active player in the room is "done" 
+    // ("done" = either out of lives or has already correctly guessed).
+    const activePlayerIds = Object.keys(room.players || {}).filter(id => room.players[id].connected !== false);
+    const allDone = activePlayerIds.every((id) => {
+        // If lives aren't defined for this player yet, assume 3
+        const livesLeft = newLivesObj[id] !== undefined ? newLivesObj[id] : 3;
+        const hasGuessed = newCorrectGuesses[id];
+        return livesLeft <= 0 || hasGuessed;
+    });
+
+    if (allDone) {
+        updates["gameState/phase"] = "round_end";
+    }
+
+    await update(roomRef, updates);
+    return isCorrect;
+}
+
+/**
+ * Advance to the next round, or finish the game if all rounds are done.
+ */
+export async function nextEmojiRound(roomCode) {
+    const roomSnapshot = await get(ref(db, `rooms/${roomCode}`));
+    const room = roomSnapshot.val();
+
+    const currentRound = room.gameState.round;
+    const totalRounds = room.gameState.totalRounds;
+
+    if (currentRound >= totalRounds) {
+        // Game over
+        await update(ref(db, `rooms/${roomCode}`), {
+            status: "finished",
+            "gameState/phase": "finished",
+        });
+        return;
+    }
+
+    // Advance to next round, resetting lives
+    const nextRoundNum = currentRound + 1;
+    const puzzles = room.gameState.puzzles;
+    const nextPuzzleObject = puzzles[nextRoundNum - 1];
+
+    const newLives = {};
+    Object.keys(room.players || {}).forEach((id) => {
+        newLives[id] = 3;
+    });
+
+    await update(ref(db, `rooms/${roomCode}/gameState`), {
+        round: nextRoundNum,
+        puzzle: nextPuzzleObject.emoji,
+        answer: nextPuzzleObject.answer,
+        theme: nextPuzzleObject.theme,
+        correctGuesses: {},
+        guesses: {},
+        phase: "guessing",
+        lives: newLives,
     });
 }

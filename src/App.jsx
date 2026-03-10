@@ -12,6 +12,7 @@ import CreateParty from "./pages/CreateParty";
 import JoinParty from "./pages/JoinParty";
 import LobbyPage from "./pages/LobbyPage";
 import GamePage from "./pages/GamePage";
+import AuthPage from "./pages/AuthPage";
 
 export default function App() {
   // Attempt to reconnect to a saved room on app startup
@@ -39,6 +40,8 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/create" element={<CreateParty />} />
         <Route path="/join" element={<JoinParty />} />
+        <Route path="/login" element={<AuthPage defaultMode="login" />} />
+        <Route path="/signup" element={<AuthPage defaultMode="signup" />} />
         <Route path="/lobby/:roomCode" element={<LobbyPage />} />
         <Route path="/game/:roomCode" element={<GamePage />} />
       </Routes>

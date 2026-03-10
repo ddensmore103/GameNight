@@ -6,12 +6,25 @@
  */
 
 /**
- * @param {{ players: object, hostId: string, showScores?: boolean }}
+ * @param {{ 
+ *   players: object, 
+ *   hostId: string, 
+ *   currentUserId?: string,
+ *   onTransferHost?: (playerId: string) => void,
+ *   showScores?: boolean 
+ * }}
  */
-export default function PlayerList({ players, hostId, showScores = false }) {
+export default function PlayerList({
+    players,
+    hostId,
+    currentUserId,
+    onTransferHost,
+    showScores = false
+}) {
     if (!players) return null;
 
     const entries = Object.entries(players);
+    const isCurrentUserHost = currentUserId === hostId;
 
     return (
         <div className="player-list stagger">
@@ -30,10 +43,22 @@ export default function PlayerList({ players, hostId, showScores = false }) {
                         )}
                     </div>
 
-                    {/* Optional score */}
-                    {showScores && (
-                        <span className="player-score">{player.score || 0}</span>
-                    )}
+                    {/* Score or Action Buttons */}
+                    <div className="player-actions">
+                        {showScores && (
+                            <span className="player-score">{player.score || 0}</span>
+                        )}
+
+                        {/* Host controls: transfer hosting */}
+                        {!showScores && isCurrentUserHost && playerId !== hostId && (
+                            <button
+                                className="btn btn-secondary btn-xs"
+                                onClick={() => onTransferHost?.(playerId)}
+                            >
+                                Make Host
+                            </button>
+                        )}
+                    </div>
                 </div>
             ))}
         </div>

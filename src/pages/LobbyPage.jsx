@@ -10,7 +10,7 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useRoom } from "../hooks/useRoom";
-import { startGame, clearSession } from "../firebase/databaseHelpers";
+import { startGame, leaveRoom, transferHost } from "../firebase/databaseHelpers";
 import PlayerList from "../components/PlayerList";
 
 export default function LobbyPage() {
@@ -35,6 +35,18 @@ export default function LobbyPage() {
             await startGame(roomCode);
         } catch (err) {
             console.error("Failed to start game:", err);
+        }
+    }
+
+    async function handleTransferHost(newHostId) {
+        if (!isHost) return;
+        const newHostName = players[newHostId]?.name || "this player";
+        if (window.confirm(`Are you sure you want to make ${newHostName} the host?`)) {
+            try {
+                await transferHost(roomCode, newHostId);
+            } catch (err) {
+                console.error("Failed to transfer host:", err);
+            }
         }
     }
 
@@ -92,7 +104,12 @@ export default function LobbyPage() {
                         </div>
                     </div>
 
-                    <PlayerList players={players} hostId={hostId} />
+                    <PlayerList
+                        players={players}
+                        hostId={hostId}
+                        currentUserId={user?.uid}
+                        onTransferHost={handleTransferHost}
+                    />
                 </div>
 
                 {/* Actions */}
@@ -111,9 +128,11 @@ export default function LobbyPage() {
 
                 <button
                     className="btn btn-secondary btn-sm"
-                    onClick={() => {
-                        clearSession();
-                        navigate("/");
+                    onClick={async () => {
+                        if (window.confirm("Are you sure you want to leave the lobby?")) {
+                            await leaveRoom(roomCode, user?.uid);
+                            navigate("/");
+                        }
                     }}
                 >
                     Leave Room

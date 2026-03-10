@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
+import { useAuth } from "../hooks/useAuth";
 import {
     submitVote,
     revealVotes,
@@ -18,6 +19,7 @@ import {
     returnToGameSelection,
 } from "../firebase/databaseHelpers";
 import PlayerList from "./PlayerList";
+import { useNavigate } from "react-router-dom";
 
 export default function GameContainer({
     roomCode,
@@ -26,6 +28,8 @@ export default function GameContainer({
     isHost,
     currentUserId,
 }) {
+    const { user } = useAuth();
+    const navigate = useNavigate();
     const [selectedVote, setSelectedVote] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
@@ -141,6 +145,19 @@ export default function GameContainer({
                     <p className="waiting-text mt-lg">
                         Waiting for host to start a new game…
                     </p>
+                )}
+
+                {/* Show save stats CTA if guest */}
+                {user?.isAnonymous && (
+                    <div className="mt-lg flex-col items-center">
+                        <button
+                            className="btn btn-secondary btn-block"
+                            style={{ borderColor: "var(--accent-primary)", color: "var(--accent-primary)" }}
+                            onClick={() => navigate("/signup")}
+                        >
+                            💾 Save Your Stats: Create Profile
+                        </button>
+                    </div>
                 )}
             </div>
         );

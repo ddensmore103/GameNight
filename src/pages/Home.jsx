@@ -8,12 +8,29 @@
  */
 
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Home() {
     const navigate = useNavigate();
+    const { user, isGuest, logoutUser } = useAuth();
 
     return (
-        <div className="page">
+        <div className="page" style={{ position: "relative" }}>
+            {/* Header: Auth Status */}
+            <div style={{ position: "absolute", top: "1rem", right: "1rem", zIndex: 10 }}>
+                {isGuest ? (
+                    <div className="flex-row gap-xs">
+                        <button className="btn btn-secondary btn-sm" onClick={() => navigate("/login")}>Sign In</button>
+                        <button className="btn btn-primary btn-sm" onClick={() => navigate("/signup")}>Create Profile</button>
+                    </div>
+                ) : (
+                    <div className="flex-row gap-sm items-center">
+                        <span className="text-muted" style={{ fontSize: "0.9rem" }}>{user?.email || "Player"}</span>
+                        <button className="btn btn-secondary btn-sm" onClick={logoutUser}>Log Out</button>
+                    </div>
+                )}
+            </div>
+
             <div className="page-content fade-in-up">
                 {/* Hero */}
                 <div className="home-emoji">🎮</div>

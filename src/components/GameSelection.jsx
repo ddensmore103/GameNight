@@ -11,6 +11,7 @@ import GameCard from "./GameCard";
 import {
     startMostLikelyTo,
     startTruthOrDare,
+    startGuessTheEmoji,
 } from "../firebase/databaseHelpers";
 
 // ─── Game Registry ───────────────────────────────────────────────────────────
@@ -28,6 +29,12 @@ const GAMES = [
         title: "Truth or Dare",
         description: "Pick truth or dare, answer the prompt, and pass it on!",
     },
+    {
+        id: "guessTheEmoji",
+        emoji: "🧩",
+        title: "Guess The Emoji",
+        description: "Guess the movie, phrase, or object represented by emojis.",
+    },
 ];
 
 export default function GameSelection({ roomCode, players, isHost }) {
@@ -42,6 +49,8 @@ export default function GameSelection({ roomCode, players, isHost }) {
                 await startMostLikelyTo(roomCode);
             } else if (gameId === "truthOrDare") {
                 await startTruthOrDare(roomCode, playerIds);
+            } else if (gameId === "guessTheEmoji") {
+                await startGuessTheEmoji(roomCode, playerIds);
             }
         } catch (err) {
             console.error("Failed to start game:", err);

@@ -17,6 +17,8 @@ import { useRoom } from "../hooks/useRoom";
 import GameSelection from "../components/GameSelection";
 import GameContainer from "../components/GameContainer";
 import TruthOrDareGame from "../games/TruthOrDareGame";
+import GuessTheEmojiGame from "../games/GuessTheEmojiGame";
+import { leaveRoom, joinRoom, loadSession } from "../firebase/databaseHelpers";
 
 export default function GamePage() {
     const { roomCode } = useParams();
@@ -26,6 +28,25 @@ export default function GamePage() {
 
     const isHost = user?.uid === hostId;
     const currentGame = gameState?.currentGame || null;
+
+    // Rejoin room logic (handles refresh directly on the game page)
+    useEffect(() => {
+        if (!user || !roomCode) return;
+
+        async function ensureJoined() {
+            try {
+                const session = loadSession();
+                const sessionName = session?.playerName || "Player";
+                await joinRoom(roomCode, user.uid, sessionName);
+            } catch (err) {
+                console.error("Failed to rejoin on game refresh:", err);
+                // navigate("/") is omitted here to prevent kicking players out
+                // if they are just quickly refreshing and the room is still valid.
+            }
+        }
+
+        ensureJoined();
+    }, [user, roomCode]);
 
     // If room goes back to lobby (host pressed "Back to Lobby"), redirect
     useEffect(() => {
@@ -96,6 +117,17 @@ export default function GamePage() {
                     />
                 );
 
+            case "guessTheEmoji":
+                return (
+                    <GuessTheEmojiGame
+                        roomCode={roomCode}
+                        players={players}
+                        gameState={gameState}
+                        isHost={isHost}
+                        currentUserId={user?.uid}
+                    />
+                );
+
             default:
                 return (
                     <div className="glass-card text-center">
@@ -108,10 +140,23 @@ export default function GamePage() {
     return (
         <div className="page">
             <div className="page-content fade-in-up" style={{ maxWidth: "560px" }}>
-                <div className="flex-row justify-between items-center w-full">
-                    <h1 className="logo logo-sm">GameNight</h1>
-                    <div className="status-bar">
-                        <span className="label">{roomCode}</span>
+                <div className="flex-row justify-between items-center w-full" style={{ marginBottom: "1rem" }}>
+                    <h1 className="logo logo-sm" style={{ cursor: "pointer" }} onClick={() => navigate("/")}>GameNight</h1>
+                    <div className="flex-row gap-sm items-center">
+                        <div className="status-bar">
+                            <span className="label">{roomCode}</span>
+                        </div>
+                        <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={async () => {
+                                if (window.confirm("Are you sure you want to leave the party?")) {
+                                    await leaveRoom(roomCode, user?.uid);
+                                    navigate("/");
+                                }
+                            }}
+                        >
+                            Leave
+                        </button>
                     </div>
                 </div>
 

@@ -10,12 +10,14 @@
  * All state is stored in Firebase gameState and received via props.
  */
 
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useAuth } from "../hooks/useAuth";
 import {
     chooseTruthOrDare,
     nextTruthOrDareRound,
     returnToGameSelection,
 } from "../firebase/databaseHelpers";
+import { useNavigate } from "react-router-dom";
 
 export default function TruthOrDareGame({
     roomCode,
@@ -24,6 +26,9 @@ export default function TruthOrDareGame({
     isHost,
     currentUserId,
 }) {
+    const { user } = useAuth();
+    const navigate = useNavigate();
+
     const phase = gameState?.phase || "choose";
     const currentPlayer = gameState?.currentPlayer || null;
     const type = gameState?.type || null;
@@ -154,6 +159,19 @@ export default function TruthOrDareGame({
                     >
                         ← Back to Games
                     </button>
+                )}
+
+                {/* Show save stats CTA if guest */}
+                {user?.isAnonymous && (
+                    <div className="mt-lg flex-col items-center">
+                        <button
+                            className="btn btn-secondary btn-block"
+                            style={{ borderColor: "var(--accent-primary)", color: "var(--accent-primary)", fontSize: "0.85rem", padding: "0.5rem" }}
+                            onClick={() => navigate("/signup")}
+                        >
+                            💾 Save Your Stats: Create Profile
+                        </button>
+                    </div>
                 )}
             </div>
         );
