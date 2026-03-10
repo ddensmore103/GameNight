@@ -51,9 +51,17 @@ export default function CreateParty() {
 
     return (
         <div className="page">
-            <div className="page-content fade-in-up">
-                <h1 className="logo logo-sm">GameNight</h1>
+            <div className="page-header">
+                <h1 className="logo logo-sm" style={{ cursor: "pointer" }} onClick={() => navigate("/")}>GameNight</h1>
+                <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => navigate("/")}
+                >
+                    ← Back
+                </button>
+            </div>
 
+            <div className="page-content fade-in-up" style={{ margin: "auto 0" }}>
                 <div className="glass-card">
                     <h2 style={{ marginBottom: "0.5rem" }}>Create a Party</h2>
                     <p className="text-muted" style={{ marginBottom: "1.5rem", fontSize: "0.9rem" }}>
@@ -85,13 +93,6 @@ export default function CreateParty() {
                         </button>
                     </form>
                 </div>
-
-                <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => navigate("/")}
-                >
-                    ← Back
-                </button>
             </div>
         </div>
     );

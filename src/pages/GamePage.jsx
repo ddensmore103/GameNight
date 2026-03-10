@@ -82,14 +82,36 @@ export default function GamePage() {
 
     // ─── Determine which screen to show ─────────────────────────────────────
     function renderGame() {
-        // No game selected yet → show game selection screen
+        // No game selected yet (Selection Screen) → Everyone can see this
         if (!currentGame) {
             return (
                 <GameSelection
                     roomCode={roomCode}
                     players={players}
                     isHost={isHost}
+                    gameVotes={room?.gameVotes}
+                    currentUserId={user?.uid}
                 />
+            );
+        }
+
+        // If a game is active, check if the player was in the room when it started
+        // (Reconnecting players are always in the active list)
+        const activeIds = gameState?.activePlayerIds || [];
+        const isLateJoiner = user && !activeIds.includes(user.uid);
+
+        if (isLateJoiner) {
+            return (
+                <div className="glass-card text-center fade-in-up">
+                    <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⏳</div>
+                    <h2 style={{ marginBottom: "0.5rem" }}>Game in Progress</h2>
+                    <p className="text-muted">
+                        A round of <strong>{currentGame === "mostLikelyTo" ? "Most Likely To" : currentGame === "truthOrDare" ? "Truth or Dare" : "Guess The Emoji"}</strong> is currently active.
+                    </p>
+                    <p className="waiting-text" style={{ marginTop: "1rem" }}>
+                        You'll be able to join as soon as this game ends and the host returns to selection!
+                    </p>
+                </div>
             );
         }
 
@@ -139,27 +161,31 @@ export default function GamePage() {
 
     return (
         <div className="page">
-            <div className="page-content fade-in-up" style={{ maxWidth: "560px" }}>
-                <div className="flex-row justify-between items-center w-full" style={{ marginBottom: "1rem" }}>
-                    <h1 className="logo logo-sm" style={{ cursor: "pointer" }} onClick={() => navigate("/")}>GameNight</h1>
-                    <div className="flex-row gap-sm items-center">
-                        <div className="status-bar">
-                            <span className="label">{roomCode}</span>
-                        </div>
-                        <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={async () => {
-                                if (window.confirm("Are you sure you want to leave the party?")) {
-                                    await leaveRoom(roomCode, user?.uid);
-                                    navigate("/");
-                                }
-                            }}
-                        >
-                            Leave
-                        </button>
-                    </div>
-                </div>
+            {/* Top-aligned Header */}
+            <div className="page-header">
+                <h1 className="logo logo-sm" style={{ cursor: "pointer" }} onClick={() => navigate("/")}>GameNight</h1>
 
+                <div className="flex-row gap-sm items-center">
+                    <div className="status-bar" style={{ background: "rgba(255,255,255,0.05)" }}>
+                        <span className="text-muted" style={{ fontWeight: 700, letterSpacing: "1px" }}>{roomCode}</span>
+                    </div>
+                    <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: "0.5rem 1rem" }}
+                        onClick={async () => {
+                            if (window.confirm("Are you sure you want to leave the game?")) {
+                                await leaveRoom(roomCode, user?.uid);
+                                navigate("/");
+                            }
+                        }}
+                    >
+                        Leave
+                    </button>
+                </div>
+            </div>
+
+            {/* Centered Main Content */}
+            <div className="page-content fade-in-up" style={{ margin: "auto 0" }}>
                 {renderGame()}
             </div>
         </div>

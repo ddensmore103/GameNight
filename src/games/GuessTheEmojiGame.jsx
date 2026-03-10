@@ -316,7 +316,7 @@ export default function GuessTheEmojiGame({
             </div>
 
             {/* Scoreboard Preview & Live Feed Container */}
-            <div className="flex-row gap-sm" style={{ alignItems: "stretch" }}>
+            <div className="flex-responsive">
                 <div className="glass-card" style={{ padding: "1rem", flex: "1" }}>
                     <div className="flex-row justify-between items-center" style={{ marginBottom: "0.5rem" }}>
                         <h4 style={{ margin: 0 }}>Scores</h4>

@@ -80,10 +80,32 @@ export default function LobbyPage() {
 
     return (
         <div className="page">
-            <div className="page-content fade-in-up">
-                <h1 className="logo logo-sm">GameNight</h1>
+            {/* Top-aligned Header */}
+            <div className="page-header">
+                <h1 className="logo logo-sm" style={{ cursor: "pointer" }} onClick={() => navigate("/")}>GameNight</h1>
 
-                {/* Room Code */}
+                <div className="flex-row gap-sm items-center">
+                    <div className="status-bar" style={{ background: "rgba(255,255,255,0.05)" }}>
+                        <span className="text-muted" style={{ fontWeight: 700, letterSpacing: "1px" }}>{roomCode}</span>
+                    </div>
+                    <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: "0.5rem 1rem" }}
+                        onClick={async () => {
+                            if (window.confirm("Are you sure you want to leave the lobby?")) {
+                                await leaveRoom(roomCode, user?.uid);
+                                navigate("/");
+                            }
+                        }}
+                    >
+                        Leave
+                    </button>
+                </div>
+            </div>
+
+            {/* Centered Main Content */}
+            <div className="page-content fade-in-up" style={{ margin: "auto 0" }}>
+                {/* Room Code Big (optional, but keep it centered for focus) */}
                 <div className="room-code-display">
                     <span className="label">Room Code</span>
                     <span className="room-code" title="Click to copy" onClick={() => {
@@ -125,18 +147,6 @@ export default function LobbyPage() {
                 ) : (
                     <p className="waiting-text">Waiting for host to start the game…</p>
                 )}
-
-                <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={async () => {
-                        if (window.confirm("Are you sure you want to leave the lobby?")) {
-                            await leaveRoom(roomCode, user?.uid);
-                            navigate("/");
-                        }
-                    }}
-                >
-                    Leave Room
-                </button>
             </div>
         </div>
     );

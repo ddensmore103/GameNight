@@ -51,6 +51,21 @@
 
   /* Font */
   --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Responsive Widths */
+  --max-width: 480px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --max-width: 720px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --max-width: 1024px;
+  }
 }
 
 /* ─── Reset & Base ───────────────────────────────────────────────────────────── */
@@ -214,18 +229,34 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: var(--space-xl);
   min-height: 100vh;
+  width: 100%;
+}
+
+.page-header {
+  width: 100%;
+  max-width: var(--max-width);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md) 0;
+  margin-bottom: var(--space-xl);
+  flex-shrink: 0;
 }
 
 .page-content {
   width: 100%;
-  max-width: 480px;
+  max-width: var(--max-width);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: var(--space-lg);
+  transition: max-width var(--transition-slow);
+  flex: 1;
+  margin: auto 0;
 }
 
 /* ─── Glass Card ─────────────────────────────────────────────────────────────── */
@@ -566,9 +597,58 @@ h4 {
 /* ─── Vote Buttons ───────────────────────────────────────────────────────────── */
 .vote-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: var(--space-md);
   width: 100%;
+}
+
+@media (min-width: 768px) {
+  .vote-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+.game-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+  text-align: left;
+}
+
+.game-card.voted {
+  border-color: var(--accent-primary);
+  background: rgba(100, 108, 255, 0.1);
+}
+
+.vote-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: var(--accent-primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+  animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pop-in {
+  0% {
+    transform: scale(0);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .vote-btn {
@@ -796,6 +876,19 @@ h4 {
   justify-content: space-between;
 }
 
+.flex-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+@media (min-width: 768px) {
+  .flex-responsive {
+    flex-direction: row;
+    align-items: stretch;
+  }
+}
+
 /* ─── Home-specific ──────────────────────────────────────────────────────────── */
 .home-actions {
   display: flex;
@@ -887,9 +980,15 @@ h4 {
 /* ─── Game Selection Cards ───────────────────────────────────────────────────── */
 .game-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-lg);
   width: 100%;
+}
+
+@media (max-width: 640px) {
+  .game-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .game-card {

@@ -12,6 +12,7 @@ import {
     startMostLikelyTo,
     startTruthOrDare,
     startGuessTheEmoji,
+    toggleGameVote,
 } from "../firebase/databaseHelpers";
 
 // ─── Game Registry ───────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ const GAMES = [
     },
 ];
 
-export default function GameSelection({ roomCode, players, isHost }) {
+export default function GameSelection({ roomCode, players, isHost, gameVotes, currentUserId }) {
     const playerIds = players ? Object.keys(players) : [];
 
     // Handler: host picks a game → write to Firebase
@@ -46,7 +47,7 @@ export default function GameSelection({ roomCode, players, isHost }) {
 
         try {
             if (gameId === "mostLikelyTo") {
-                await startMostLikelyTo(roomCode);
+                await startMostLikelyTo(roomCode, playerIds);
             } else if (gameId === "truthOrDare") {
                 await startTruthOrDare(roomCode, playerIds);
             } else if (gameId === "guessTheEmoji") {
@@ -54,6 +55,16 @@ export default function GameSelection({ roomCode, players, isHost }) {
             }
         } catch (err) {
             console.error("Failed to start game:", err);
+        }
+    }
+
+    // Handler: players vote for a game
+    async function handleVote(gameId) {
+        if (isHost) return;
+        try {
+            await toggleGameVote(roomCode, gameId, currentUserId);
+        } catch (err) {
+            console.error("Failed to toggle vote:", err);
         }
     }
 
@@ -73,16 +84,25 @@ export default function GameSelection({ roomCode, players, isHost }) {
             </div>
 
             <div className="game-grid">
-                {GAMES.map((game) => (
-                    <GameCard
-                        key={game.id}
-                        emoji={game.emoji}
-                        title={game.title}
-                        description={game.description}
-                        onStart={() => handleSelectGame(game.id)}
-                        disabled={!isHost}
-                    />
-                ))}
+                {GAMES.map((game) => {
+                    const votesForGame = gameVotes?.[game.id] || {};
+                    const votesCount = Object.keys(votesForGame).length;
+                    const hasVoted = currentUserId in votesForGame;
+
+                    return (
+                        <GameCard
+                            key={game.id}
+                            emoji={game.emoji}
+                            title={game.title}
+                            description={game.description}
+                            onStart={() => handleSelectGame(game.id)}
+                            onVote={() => handleVote(game.id)}
+                            isHost={isHost}
+                            votesCount={votesCount}
+                            hasVoted={hasVoted}
+                        />
+                    );
+                })}
             </div>
         </div>
     );

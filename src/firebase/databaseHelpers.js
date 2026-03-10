@@ -178,9 +178,10 @@ export async function joinRoom(roomCode, playerId, playerName) {
     const room = snapshot.val();
 
     // Allow rejoining if the player already exists (reconnect case)
+    // Also allow new players to join even if a game is in progress (they'll wait)
     const existingPlayer = room.players?.[playerId];
-    if (!existingPlayer && room.status !== "lobby") {
-        throw new Error("This game has already started.");
+    if (!existingPlayer && room.status === "finished") {
+        throw new Error("This game session has finished.");
     }
 
     // Add (or update) the player in the room, preserving score if reconnecting
@@ -354,7 +355,7 @@ export async function startGame(roomCode) {
  * Initialize the "Most Likely To" game.
  * Sets up rounds, shuffled prompts, and the voting phase.
  */
-export async function startMostLikelyTo(roomCode) {
+export async function startMostLikelyTo(roomCode, playerIds) {
     const totalRounds = 5;
     const shuffled = shuffle(PROMPTS);
     const selectedPrompts = shuffled.slice(0, totalRounds);
@@ -367,6 +368,7 @@ export async function startMostLikelyTo(roomCode) {
         prompts: selectedPrompts,
         votes: {},
         phase: "voting",
+        activePlayerIds: playerIds, // Late joiners wait for next game
     };
 
     await update(ref(db, `rooms/${roomCode}`), { gameState });
@@ -393,6 +395,7 @@ export async function startTruthOrDare(roomCode, playerIds) {
         type: null,        // "truth" | "dare" (set after player chooses)
         prompt: null,
         roundNumber: 1,
+        activePlayerIds: playerIds,
     };
 
     await update(ref(db, `rooms/${roomCode}`), { gameState });
@@ -537,11 +540,33 @@ export async function returnToLobby(roomCode) {
 
 /**
  * Return to the game selection screen (keep status as "playing" but clear game).
+ * Also clears any previous game votes.
  */
 export async function returnToGameSelection(roomCode) {
     await update(ref(db, `rooms/${roomCode}`), {
         gameState: null,
+        gameVotes: null,
     });
+}
+
+/**
+ * Toggle a player's vote for a specific game on the selection screen.
+ *
+ * @param {string} roomCode
+ * @param {string} gameId
+ * @param {string} playerId
+ */
+export async function toggleGameVote(roomCode, gameId, playerId) {
+    const voteRef = ref(db, `rooms/${roomCode}/gameVotes/${gameId}/${playerId}`);
+    const snapshot = await get(voteRef);
+
+    if (snapshot.exists()) {
+        // Remove vote
+        await set(voteRef, null);
+    } else {
+        // Add vote
+        await set(voteRef, true);
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -573,6 +598,7 @@ export async function startGuessTheEmoji(roomCode, playerIds) {
         correctGuesses: {},
         guesses: {},
         lives: initialLives,
+        activePlayerIds: playerIds,
     };
 
     await update(ref(db, `rooms/${roomCode}`), { gameState });
