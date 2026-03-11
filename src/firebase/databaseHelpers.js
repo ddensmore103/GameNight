@@ -83,6 +83,15 @@ const EMOJI_PUZZLES = [
     { emoji: "🚗⚡🕰️", answer: "Back to the Future", theme: "Movie" },
 ];
 
+// ─── Words for "Imposter" ────────────────────────────────────────────────────
+const IMPOSTER_WORDS = [
+    "Pineapple", "Spaceship", "Library", "Backpack", "Popcorn",
+    "Waterfall", "Kangaroo", "Microscope", "Lighthouse", "Sandwich",
+    "Telescope", "Rainbow", "Firefighter", "Keyboard", "Skyscraper",
+    "Chocolate", "Sunflower", "Helicopter", "Dinosaur", "Astronaut",
+    "Pancake", "Volcano", "Spatula", "Octopus", "Umbrella"
+];
+
 /**
  * Normalize an answer for comparison (lowercase, remove spaces and punctuation).
  */
@@ -718,4 +727,228 @@ export async function nextEmojiRound(roomCode) {
         phase: "guessing",
         lives: newLives,
     });
+}
+// ═══════════════════════════════════════════════════════════════════════════════
+// "Imposter" — Game Helpers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Initialize the "Imposter" game.
+ */
+export async function startImposter(roomCode, playerIds) {
+    const roomSnapshot = await get(ref(db, `rooms/${roomCode}`));
+    const room = roomSnapshot.val();
+
+    // Pick a random word
+    const secretWord = IMPOSTER_WORDS[Math.floor(Math.random() * IMPOSTER_WORDS.length)];
+
+    // Pick a random imposter
+    const imposterId = playerIds[Math.floor(Math.random() * playerIds.length)];
+
+    // Determine who goes first.
+    // If we have a record of who went first last time, cycle it.
+    const lastFirstId = room.imposterFirstPlayerId;
+    let turnOrder;
+
+    if (lastFirstId && playerIds.includes(lastFirstId)) {
+        // Cycle to the next player in the sorted list of IDs
+        const sortedIds = [...playerIds].sort();
+        const lastIndex = sortedIds.indexOf(lastFirstId);
+        const nextIndex = (lastIndex + 1) % sortedIds.length;
+        const nextFirstId = sortedIds[nextIndex];
+
+        // Build turn order starting with the next player
+        turnOrder = [
+            ...sortedIds.slice(nextIndex),
+            ...sortedIds.slice(0, nextIndex)
+        ];
+    } else {
+        // First time or last player left: pick random first player
+        const startIndex = Math.floor(Math.random() * playerIds.length);
+        const sortedIds = [...playerIds].sort();
+        turnOrder = [
+            ...sortedIds.slice(startIndex),
+            ...sortedIds.slice(0, startIndex)
+        ];
+    }
+
+    const firstPlayerId = turnOrder[0];
+
+    const gameState = {
+        currentGame: "imposter",
+        phase: "role_reveal", // Start directly at role_reveal
+        imposterId,
+        secretWord,
+        hints: {},
+        votes: {},
+        turnOrder,
+        currentTurn: 0,
+        confirmedRoles: {},
+        activePlayerIds: playerIds,
+        winner: null,
+        caught: false,
+        imposterGuess: null,
+    };
+
+    await update(ref(db, `rooms/${roomCode}`), {
+        gameState,
+        imposterFirstPlayerId: firstPlayerId // Save for cycling next time
+    });
+}
+
+/**
+ * Host submits the secret word.
+ */
+export async function setupImposterWord(roomCode, word) {
+    await update(ref(db, `rooms/${roomCode}/gameState`), {
+        secretWord: word,
+        phase: "role_reveal",
+    });
+}
+
+/**
+ * Player confirms they've seen their role.
+ */
+export async function confirmImposterRole(roomCode, playerId) {
+    const roomRef = ref(db, `rooms/${roomCode}`);
+    const snapshot = await get(roomRef);
+    if (!snapshot.exists()) return;
+
+    const room = snapshot.val();
+    const activePlayerIds = room.gameState.activePlayerIds || [];
+    const confirmedRoles = { ...(room.gameState.confirmedRoles || {}), [playerId]: true };
+
+    const allConfirmed = activePlayerIds.every(id => confirmedRoles[id]);
+
+    const updates = {
+        "gameState/confirmedRoles": confirmedRoles,
+    };
+
+    if (allConfirmed) {
+        updates["gameState/phase"] = "hints";
+    }
+
+    await update(roomRef, updates);
+}
+
+/**
+ * Submit a one-word hint.
+ */
+export async function submitImposterHint(roomCode, playerId, hint) {
+    const roomRef = ref(db, `rooms/${roomCode}`);
+    const snapshot = await get(roomRef);
+    if (!snapshot.exists()) return;
+
+    const room = snapshot.val();
+    const gameState = room.gameState;
+    const hints = { ...(gameState.hints || {}), [playerId]: hint };
+    const nextTurn = gameState.currentTurn + 1;
+    const turnOrder = gameState.turnOrder || [];
+
+    const updates = {
+        "gameState/hints": hints,
+        "gameState/currentTurn": nextTurn,
+    };
+
+    if (nextTurn >= turnOrder.length) {
+        updates["gameState/phase"] = "voting";
+    }
+
+    await update(roomRef, updates);
+}
+
+/**
+ * Submit a vote for the Imposter.
+ */
+export async function submitImposterVote(roomCode, playerId, votedId) {
+    await set(ref(db, `rooms/${roomCode}/gameState/votes/${playerId}`), votedId);
+}
+
+/**
+ * Reveal the voting results.
+ */
+export async function revealImposterResults(roomCode) {
+    const roomSnapshot = await get(ref(db, `rooms/${roomCode}`));
+    const room = roomSnapshot.val();
+    const gameState = room.gameState;
+    const votes = gameState.votes || {};
+    const imposterId = gameState.imposterId;
+    const activePlayerIds = gameState.activePlayerIds || [];
+
+    // Count votes
+    const voteCounts = {};
+    Object.values(votes).forEach(id => {
+        voteCounts[id] = (voteCounts[id] || 0) + 1;
+    });
+
+    // Find who got the most votes
+    let maxVotes = -1;
+    let votedOutId = null;
+    let tie = false;
+
+    Object.entries(voteCounts).forEach(([id, count]) => {
+        if (count > maxVotes) {
+            maxVotes = count;
+            votedOutId = id;
+            tie = false;
+        } else if (count === maxVotes) {
+            tie = true;
+        }
+    });
+
+    const caught = !tie && votedOutId === imposterId;
+
+    // Initial results phase
+    await update(ref(db, `rooms/${roomCode}/gameState`), {
+        phase: "results",
+        caught,
+        winner: caught ? null : "imposter" // If not caught, imposter wins immediately. If caught, imposter gets a final guess.
+    });
+
+    // If imposter wins (not caught), update scores
+    if (!caught) {
+        const currentScore = room.players[imposterId]?.score || 0;
+        await update(ref(db, `rooms/${roomCode}/players/${imposterId}`), {
+            score: currentScore + 2
+        });
+    }
+}
+
+/**
+ * Imposter's final guess at the secret word.
+ */
+export async function imposterGuessWord(roomCode, guess) {
+    const roomSnapshot = await get(ref(db, `rooms/${roomCode}`));
+    const room = roomSnapshot.val();
+    const gameState = room.gameState;
+    const secretWord = gameState.secretWord;
+    const imposterId = gameState.imposterId;
+
+    const correct = normalizeAnswer(guess) === normalizeAnswer(secretWord);
+    const winner = correct ? "imposter" : "players";
+
+    const updates = {
+        "gameState/imposterGuess": guess,
+        "gameState/winner": winner,
+    };
+
+    await update(ref(db, `rooms/${roomCode}`), updates);
+
+    // Update scores based on the win
+    if (winner === "imposter") {
+        const currentScore = room.players[imposterId]?.score || 0;
+        await update(ref(db, `rooms/${roomCode}/players/${imposterId}`), {
+            score: currentScore + 2
+        });
+    } else {
+        // Normal players each get 1 point
+        const players = room.players || {};
+        const scoreUpdates = {};
+        gameState.activePlayerIds.forEach(id => {
+            if (id !== imposterId) {
+                scoreUpdates[`players/${id}/score`] = (players[id]?.score || 0) + 1;
+            }
+        });
+        await update(ref(db, `rooms/${roomCode}`), scoreUpdates);
+    }
 }

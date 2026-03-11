@@ -14,6 +14,7 @@ export default function GameCard({
     isHost,
     votesCount,
     hasVoted,
+    disabled,
 }) {
     return (
         <div className={`game-card ${hasVoted ? "voted" : ""}`}>
@@ -34,13 +35,15 @@ export default function GameCard({
                 <button
                     className="btn btn-primary btn-block btn-sm"
                     onClick={onStart}
+                    disabled={disabled}
                 >
-                    ▶ Play
+                    {disabled ? "🚫 Too few players" : "▶ Play"}
                 </button>
             ) : (
                 <button
                     className={`btn btn-block btn-sm ${hasVoted ? "btn-accent" : "btn-secondary"}`}
                     onClick={onVote}
+                    disabled={disabled}
                 >
                     {hasVoted ? "✓ Voted" : "👍 Vote"}
                 </button>

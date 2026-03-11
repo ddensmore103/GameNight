@@ -12,6 +12,7 @@ import {
     startMostLikelyTo,
     startTruthOrDare,
     startGuessTheEmoji,
+    startImposter,
     toggleGameVote,
 } from "../firebase/databaseHelpers";
 
@@ -36,6 +37,13 @@ const GAMES = [
         title: "Guess The Emoji",
         description: "Guess the movie, phrase, or object represented by emojis.",
     },
+    {
+        id: "imposter",
+        emoji: "🕵️‍♂️",
+        title: "Imposter",
+        description: "Find the imposter among you! 3+ players required.",
+        minPlayers: 3,
+    },
 ];
 
 export default function GameSelection({ roomCode, players, isHost, gameVotes, currentUserId }) {
@@ -52,6 +60,8 @@ export default function GameSelection({ roomCode, players, isHost, gameVotes, cu
                 await startTruthOrDare(roomCode, playerIds);
             } else if (gameId === "guessTheEmoji") {
                 await startGuessTheEmoji(roomCode, playerIds);
+            } else if (gameId === "imposter") {
+                await startImposter(roomCode, playerIds);
             }
         } catch (err) {
             console.error("Failed to start game:", err);
@@ -100,6 +110,7 @@ export default function GameSelection({ roomCode, players, isHost, gameVotes, cu
                             isHost={isHost}
                             votesCount={votesCount}
                             hasVoted={hasVoted}
+                            disabled={game.minPlayers && playerIds.length < game.minPlayers}
                         />
                     );
                 })}

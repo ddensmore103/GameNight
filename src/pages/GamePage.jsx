@@ -19,6 +19,7 @@ import GameSelection from "../components/GameSelection";
 import GameContainer from "../components/GameContainer";
 import TruthOrDareGame from "../games/TruthOrDareGame";
 import GuessTheEmojiGame from "../games/GuessTheEmojiGame";
+import ImposterGame from "../games/ImposterGame";
 import { leaveRoom, joinRoom, loadSession, transferHost } from "../firebase/databaseHelpers";
 
 export default function GamePage() {
@@ -105,7 +106,12 @@ export default function GamePage() {
                     <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⏳</div>
                     <h2 style={{ marginBottom: "0.5rem" }}>Game in Progress</h2>
                     <p className="text-muted">
-                        A round of <strong>{currentGame === "mostLikelyTo" ? "Most Likely To" : currentGame === "truthOrDare" ? "Truth or Dare" : "Guess The Emoji"}</strong> is currently active.
+                        A round of <strong>{
+                            currentGame === "mostLikelyTo" ? "Who's Most Likely To" :
+                                currentGame === "truthOrDare" ? "Truth or Dare" :
+                                    currentGame === "guessTheEmoji" ? "Guess The Emoji" :
+                                        "Imposter"
+                        }</strong> is currently active.
                     </p>
                     <p className="waiting-text" style={{ marginTop: "1rem" }}>
                         You'll be able to join as soon as this game ends and the host returns to selection!
@@ -146,6 +152,16 @@ export default function GamePage() {
                         currentUserId={user?.uid}
                     />
                 );
+            case "imposter":
+                return (
+                    <ImposterGame
+                        roomCode={roomCode}
+                        players={players}
+                        gameState={gameState}
+                        isHost={isHost}
+                        currentUserId={user?.uid}
+                    />
+                );
             default:
                 return (
                     <div className="glass-card text-center">
@@ -179,7 +195,7 @@ export default function GamePage() {
                 </div>
             </div>
 
-            <div className="page-content wide" style={{ maxWidth: "100%", margin: 0 }}>
+            <div className="page-content wide" style={{ maxWidth: "100%", margin: "0", justifyContent: "flex-start" }}>
                 {!currentGame ? (
                     <div className="lobby-layout">
                         {/* Sidebar: Players (Desktop: Left, Mobile: Bottom) */}
