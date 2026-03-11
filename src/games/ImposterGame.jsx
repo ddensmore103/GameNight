@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-    setupImposterWord,
+    setImposterMode,
     confirmImposterRole,
     submitImposterHint,
     submitImposterVote,
@@ -10,7 +10,6 @@ import {
 } from "../firebase/databaseHelpers";
 
 export default function ImposterGame({ roomCode, players, gameState, isHost, currentUserId }) {
-    const [wordInput, setWordInput] = useState("");
     const [hintInput, setHintInput] = useState("");
     const [imposterGuess, setImposterGuess] = useState("");
     const [hasVoted, setHasVoted] = useState(false);
@@ -27,12 +26,12 @@ export default function ImposterGame({ roomCode, players, gameState, isHost, cur
         activePlayerIds = [],
         winner,
         caught,
+        playMode,
     } = gameState;
 
     const isImposter = currentUserId === imposterId;
     const currentPlayerId = turnOrder[currentTurn];
     const isMyTurn = currentUserId === currentPlayerId;
-    const myHint = hints[currentUserId];
     const hasConfirmedRole = confirmedRoles[currentUserId];
 
     // Reset local vote state when phase changes
@@ -41,6 +40,44 @@ export default function ImposterGame({ roomCode, players, gameState, isHost, cur
             setHasVoted(false);
         }
     }, [phase]);
+
+    // ─── Phase: Setup Mode (Host Only) ────────────────────────────────────
+    if (phase === "setup_mode") {
+        if (!isHost) {
+            return (
+                <div className="glass-card text-center fade-in-up">
+                    <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎮</div>
+                    <h2>Waiting for Host</h2>
+                    <p className="text-muted">The host is choosing how to play...</p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="glass-card text-center fade-in-up">
+                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🕵️‍♂️</div>
+                <h2>Imposter</h2>
+                <p className="text-muted mb-lg">How would you like to play this round?</p>
+                <div className="flex-col gap-md">
+                    <button
+                        className="btn btn-primary btn-block"
+                        onClick={() => setImposterMode(roomCode, "online")}
+                    >
+                        🌐 Play Online (Typed)
+                    </button>
+                    <button
+                        className="btn btn-secondary btn-block"
+                        onClick={() => setImposterMode(roomCode, "in_person")}
+                    >
+                        👥 Play In-Person (Verbal)
+                    </button>
+                    <p className="text-muted mt-md" style={{ fontSize: "0.85rem" }}>
+                        <strong>In-Person:</strong> Hints and voting are done out loud. Use your phone only to see your role!
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     // ─── Phase: Role Reveal ────────────────────────────────────────────────
     if (phase === "role_reveal") {
@@ -85,7 +122,42 @@ export default function ImposterGame({ roomCode, players, gameState, isHost, cur
         );
     }
 
-    // ─── Phase: Hints ───────────────────────────────────────────────────────
+    // ─── Phase: Gameplay (In-Person or Hints) ───────────────────────────────
+    if (phase === "hints" && playMode === "in_person") {
+        return (
+            <div className="glass-card text-center fade-in-up">
+                <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>🗣️</div>
+                <h2>Take Turns Giving Hints!</h2>
+                <p className="text-muted mb-lg">
+                    Go around the room and give one-word hints about the secret word.
+                </p>
+
+                <div className="mt-lg mb-lg p-md" style={{ background: "var(--glass-bg)", borderRadius: "var(--radius-md)", border: "1px solid var(--glass-border)" }}>
+                    {isImposter ? (
+                        <h1 style={{ color: "var(--accent-danger)", fontSize: "2rem" }}>IMPOSTER</h1>
+                    ) : (
+                        <>
+                            <p className="label">The Secret Word is</p>
+                            <h1 style={{ color: "var(--accent-secondary)", fontSize: "2.5rem", textTransform: "uppercase" }}>{secretWord}</h1>
+                        </>
+                    )}
+                </div>
+
+                <p className="text-muted mb-xl">
+                    Once everyone has given a hint and you've discussed who the imposter might be...
+                </p>
+
+                {isHost && (
+                    <button className="btn btn-primary btn-block" onClick={() => revealImposterResults(roomCode)}>
+                        Reveal Results
+                    </button>
+                )}
+                {!isHost && <p className="waiting-text">Waiting for host to reveal results...</p>}
+            </div>
+        );
+    }
+
+    // ─── Phase: Hints (Online) ──────────────────────────────────────────────
     if (phase === "hints") {
         return (
             <div className="flex-col gap-lg w-full fade-in-up">
@@ -210,7 +282,7 @@ export default function ImposterGame({ roomCode, players, gameState, isHost, cur
                     {winner === "players" ? "🎉" : caught ? "⚖️" : "🤫"}
                 </div>
 
-                {winner ? (
+                {winner && winner !== "none" ? (
                     <>
                         <h1 style={{ color: winner === "imposter" ? "var(--accent-danger)" : "var(--accent-success)", fontSize: "clamp(1.5rem, 8vw, 2.5rem)" }}>
                             {winner === "imposter" ? "IMPOSTER WINS!" : "PLAYERS WIN!"}
@@ -228,36 +300,57 @@ export default function ImposterGame({ roomCode, players, gameState, isHost, cur
                     </>
                 ) : (
                     <>
-                        <h2 style={{ color: "var(--accent-warning)", fontSize: "1.5rem" }}>IMPOSTER CAUGHT!</h2>
-                        <p className="text-muted mb-lg">
-                            {players[imposterId]?.name} was the imposter.
-                            <br />
-                            But they have one final chance to steal the win!
-                        </p>
-
-                        {isImposter ? (
-                            <div className="flex-col gap-md">
-                                <p className="label">Guess the Secret Word</p>
-                                <input
-                                    type="text"
-                                    className="input"
-                                    placeholder="Your guess..."
-                                    value={imposterGuess}
-                                    onChange={(e) => setImposterGuess(e.target.value)}
-                                    onKeyDown={(e) => e.key === "Enter" && imposterGuess.trim() && imposterGuessWord(roomCode, imposterGuess.trim())}
-                                />
-                                <button
-                                    className="btn btn-accent btn-block"
-                                    disabled={!imposterGuess.trim()}
-                                    onClick={() => imposterGuessWord(roomCode, imposterGuess.trim())}
-                                >
-                                    Guess Word
-                                </button>
+                        {winner === "none" ? (
+                            <div className="mt-lg mb-xl">
+                                <h1 style={{ color: "var(--accent-secondary)", fontSize: "clamp(1.5rem, 8vw, 2.5rem)" }}>REVEAL!</h1>
+                                <p className="text-muted mt-md">The Imposter was</p>
+                                <h2 style={{ fontSize: "2rem", color: "var(--accent-danger)" }}>{players[imposterId]?.name}</h2>
+                                <p className="text-muted mt-lg">Secret Word: <strong>{secretWord}</strong></p>
                             </div>
                         ) : (
-                            <div className="waiting-text">
-                                Waiting for {players[imposterId]?.name} to guess the word...
-                            </div>
+                            <>
+                                <h2 style={{ color: "var(--accent-warning)", fontSize: "1.5rem" }}>IMPOSTER CAUGHT!</h2>
+                                <p className="text-muted mb-lg">
+                                    {players[imposterId]?.name} was the imposter.
+                                    <br />
+                                    But they have one final chance to steal the win!
+                                </p>
+                            </>
+                        )}
+
+                        {winner === "none" ? (
+                            isHost && (
+                                <button className="btn btn-primary btn-block mt-lg" onClick={() => returnToGameSelection(roomCode)}>
+                                    Back to Selection
+                                </button>
+                            )
+                        ) : (
+                            <>
+                                {isImposter ? (
+                                    <div className="flex-col gap-md">
+                                        <p className="label">Guess the Secret Word</p>
+                                        <input
+                                            type="text"
+                                            className="input"
+                                            placeholder="Your guess..."
+                                            value={imposterGuess}
+                                            onChange={(e) => setImposterGuess(e.target.value)}
+                                            onKeyDown={(e) => e.key === "Enter" && imposterGuess.trim() && imposterGuessWord(roomCode, imposterGuess.trim())}
+                                        />
+                                        <button
+                                            className="btn btn-accent btn-block"
+                                            disabled={!imposterGuess.trim()}
+                                            onClick={() => imposterGuessWord(roomCode, imposterGuess.trim())}
+                                        >
+                                            Guess Word
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="waiting-text">
+                                        Waiting for {players[imposterId]?.name} to guess the word...
+                                    </div>
+                                )}
+                            </>
                         )}
                     </>
                 )}

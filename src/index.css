@@ -250,14 +250,35 @@ body {
 
 @media (max-width: 480px) {
   .page-header {
-    grid-template-columns: 1fr auto;
-    gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
   }
 
-  /* Hide logo name on very small screens if room code is present, or just shrink it */
   .page-header .logo {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
+  }
+
+  .page-header .logo-text {
+    display: none;
+    /* Only show emoji on very small screens to save space */
+  }
+
+  .room-code-display {
+    padding: 2px 8px;
+  }
+
+  .room-code-display .label {
+    font-size: 0.6rem;
+  }
+
+  .room-code-display .code {
+    font-size: 0.9rem;
+  }
+
+  .leave-btn {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: 0.8rem;
   }
 }
 
@@ -813,7 +834,6 @@ h4 {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   word-break: break-word;
-}
 }
 
 .round-indicator {

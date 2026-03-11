@@ -776,7 +776,8 @@ export async function startImposter(roomCode, playerIds) {
 
     const gameState = {
         currentGame: "imposter",
-        phase: "role_reveal", // Start directly at role_reveal
+        phase: "setup_mode", // Start with mode selection
+        playMode: null, // "online" | "in_person"
         imposterId,
         secretWord,
         hints: {},
@@ -793,6 +794,16 @@ export async function startImposter(roomCode, playerIds) {
     await update(ref(db, `rooms/${roomCode}`), {
         gameState,
         imposterFirstPlayerId: firstPlayerId // Save for cycling next time
+    });
+}
+
+/**
+ * Set the play mode for Imposter (Online or In-Person).
+ */
+export async function setImposterMode(roomCode, mode) {
+    await update(ref(db, `rooms/${roomCode}/gameState`), {
+        playMode: mode,
+        phase: "role_reveal",
     });
 }
 
@@ -901,8 +912,8 @@ export async function revealImposterResults(roomCode) {
     // Initial results phase
     await update(ref(db, `rooms/${roomCode}/gameState`), {
         phase: "results",
-        caught,
-        winner: caught ? null : "imposter" // If not caught, imposter wins immediately. If caught, imposter gets a final guess.
+        caught: gameState.playMode === "in_person" ? null : caught,
+        winner: gameState.playMode === "in_person" ? "none" : (caught ? null : "imposter")
     });
 
     // If imposter wins (not caught), update scores
